@@ -2,7 +2,7 @@
 
 **把 LSNet / Kaloscope 的「画师风格张量」从只能看，变成能算、能存、能读回、能进化。**
 
-一个给 [**comfyui-lsnet**](https://github.com/spawner1145/comfyui-lsnet)（LSNet 画师分类器）用的
+一个给 [**comfyui-kaloscope**](https://github.com/spawner1145/comfyui-kaloscope)（旧名 **comfyui-lsnet**，LSNet 画师分类器）用的
 **附属节点包**：不改插件、不改权重、不重新训练，只加一层"计算层"——
 直接把分类头的前特征向量（"画风张量"）反推成画师串、把画师串变回向量、用表达式做向量运算、
 逐比特存档读回，并附带一套可以跑起来的**画师串遗传算法工作流**。
@@ -14,9 +14,23 @@
 > (expression evaluator with 106 functions), round-trip it losslessly to txt (base64),
 > and evolve it with a ready-made genetic-algorithm workflow.
 > **Zero intrusion**: no plugin patch, no weight change, no retraining; the only dependency is `torch`.
-> See [Credits](#credits--attribution) — this pack is an affiliate of `comfyui-lsnet`, its math node is
+> **⚠ Compatibility:** works with **LSNet 2.0 only** (upstream `comfyui-kaloscope` [`legacy` branch](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)
+> = the `lsnet` **1.0.8** node in ComfyUI Manager). **Not yet adapted to Kaloscope 3.0** (see [版本兼容性与 3.0 差异](#版本兼容性与-30-差异)).
+> See [Credits](#credits--attribution) — this pack is an affiliate of `comfyui-lsnet`/`comfyui-kaloscope`, its math node is
 > inspired by [`more_math`](https://github.com/mcDandy/more_math.git), and the code was written by
 > Hermes Agent / DeepSeek V4.1 Flash under the author's direction.
+
+> ## ⚠️ 版本兼容性：本包与工作流目前**只适用于 LSNet 2.0（旧版）**
+>
+> * **上游插件**：[`spawner1145/comfyui-kaloscope` 的 `legacy` 分支](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)（旧名 `comfyui-lsnet`）
+> * **ComfyUI Manager**：安装 `lsnet` **1.0.8**（Manager 上目前仍是 2.0 版本）
+> * **模型**：`lsnet_xl_artist_448` → 目录 `models/lsnet/kaloscope2.0/`（39261 个画师类，画风向量 **2048** 维）
+>
+> **尚未适配 Kaloscope 3.0（新架构）。** 3.0 已把节点改名为 `Kaloscope *`、模型类型改为 `KALOSCOPE_MODEL`，
+> 并把"画风向量"拆成了两条分支（分类头吃 **1536** 维、且**强制 L2 归一化**的 `cls_mean`；
+> 插件默认输出的"画风向量"是 **256** 维 `projector` 分支，分类头看不到它）。
+> 因此本包的 `LSNET_MODEL` 端口与 2048 维假设在 3.0 上**会直接报类型/维度错误** —— 这是架构差异，不是配置问题。
+> 差异对照、实测数据与适配清单见 [**版本兼容性与 3.0 差异**](#版本兼容性与-30-差异)。
 
 ![ComfyUI custom node](https://img.shields.io/badge/ComfyUI-custom%20node-4B8BBE)
 ![Nodes](https://img.shields.io/badge/nodes-7-8A2BE2)
@@ -31,6 +45,7 @@
 - [它解决什么问题](#它解决什么问题)
 - [节点一览](#节点一览)
 - [安装与依赖](#安装与依赖)
+- [版本兼容性与 3.0 差异](#版本兼容性与-30-差异)
 - [三种常用配方](#三种常用配方)
 - [节点参考](#节点参考)
   - [1. LSNet Features → Artist Tags](#1-lsnet-features--artist-tags)
@@ -107,13 +122,56 @@ git clone https://github.com/let-the-name-be-x1/Computational-LSNet.git   # 目�
 然后**重启 ComfyUI**，在节点搜索里找分类 `Computational LSNet`。
 
 * 依赖：**只有 `torch`**（ComfyUI 自带）。`numpy` 仅被 lsnet 插件自身使用。
-* 前置：必须先安装 [**comfyui-lsnet**](https://github.com/spawner1145/comfyui-lsnet) 并放好 Kaloscope 模型目录
-  （`models/lsnet/kaloscope/`：`best_checkpoint.pth` + `class_mapping.csv` + `config.json`），
-  因为节点 1/2 需要 `LSNet Model Loader` 输出的模型句柄。
+* 前置（**仅 2.0 版**）：安装上游插件的 [`legacy` 分支](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)
+  （= ComfyUI Manager 里的 `lsnet` **1.0.8**，不要装 Manager 上将来可能出现的 3.0 版），并放好模型目录
+  （`models/lsnet/<子目录>/`：`best_checkpoint.pth` + `class_mapping.csv` + `config.json`），
+  因为节点 1/2 需要 `LSNet Model Loader` 输出的 `LSNET_MODEL` 句柄。
+  自检：装了 3.0（`Kaloscope Model Loader`）时节点会报类型不匹配 —— 见 [3.0 差异](#版本兼容性与-30-差异)。
 * 不改动 `lsnet` 插件，不改动任何权重文件，不重新训练。
 * 本包在 ComfyUI `0.38.1` / frontend `1.53.6` 上验证（Windows，torch CUDA）。
 
 ---
+
+## 版本兼容性与 3.0 差异
+
+### 2.0（本包支持 ✅） vs 3.0（未适配 ❌）
+
+| | **LSNet 2.0**（本包目前支持） | **Kaloscope 3.0**（尚未适配） |
+|---|---|---|
+| 上游插件 | [`comfyui-kaloscope` **`legacy` 分支**](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)（旧名 `comfyui-lsnet`）= ComfyUI Manager 上的 `lsnet` **1.0.8** | [`comfyui-kaloscope` **`main` 分支**](https://github.com/spawner1145/comfyui-kaloscope)（节点全部改名为 `Kaloscope *`） |
+| 主干 | LSNet（SKA 混合注意力），输入 448² | DINOv3 ViT-B/16（自监督），输入 512² |
+| "画风向量" | projection 输出 **f = 2048 维**，**同时就是分类头输入**（`LSNet Common Features` 直接给） | **两条分支**：分类头吃 **1536 维 `cls_mean`（先 L2 归一化 ×√1536）**；插件默认输出的"画风向量"是 **256 维 `projector`** 分支，**分类头看不到它** |
+| 分类头 | `BN_Linear(2048→39261)`（含 BatchNorm，`running_mean` 范数 ≈ 48） | `Linear(1536→44129)`（**纯 Linear，无 BN**） |
+| 幅值是否携带信息 | **有**（所以有"千万别归一化后再反推"这条铁律） | **没有**（head 输入恒在半径 √1536 的球面上；实测把 f 放大 1000 倍，logits 逐元素不变） |
+| `向量→画师串` 与 `图像→画师串` | 逐比特等价 | 仅当向量取自 `cls_mean` 分支并复现 `l2_sqrt_dim` 归一化时才等价 |
+| `head(mean f) == mean head(f)` | 成立（head 是仿射映射） | **不成立**（归一化是非线性的；实测最大差 5.27） |
+| 权重体积 | `best_checkpoint.pth` ≈ **2.94 GB** | `model.safetensors` ≈ **600 MB** |
+| 画师类别数 | 39261 | 44129 |
+
+> 表中 3.0 一列的数字来自本机 `models/kaloscope/kaloscope3.0`（`dinov3_vitb16` / `cls_mean` /
+> `feature_source=projector` / `classifier_input_normalization=l2_sqrt_dim`，`epoch26` 预览版）的**真实前向实测**
+> （2 张图，CPU）：`head.weight = [44129, 1536]`、`projector.2.weight = [256, 1536]`、`cls_mean` 范数 ≈ 15、
+> 概率**不饱和**（`p == 0` 的类数为 0，`p_max ≈ 0.007`，logits 跨度 ≈ 20；而 2.0 的 logits 跨度可达 `1e8`）。
+
+### 为什么在 3.0 上"接不上"
+
+1. **类型名变了**：`LSNET_MODEL` → `KALOSCOPE_MODEL`，本包 `model` 端口会拒绝连线；
+2. **维度变了**：本包按 2048 维校验，而 3.0 的 `Kaloscope Common Features` 给的是 **256 维 projector 输出**
+   —— 它**不是**分类头的输入空间，两者维度都不同，无法互推；
+3. **分类前多了一步**：3.0 必须 `F.normalize(f) × √1536` 才能进 head，而本包的 2.0 逻辑默认**不**归一化。
+
+### 适配 3.0 需要改什么（尚未实现）
+
+| 位置 | 需要改动 |
+|---|---|
+| 节点输入端口 | `("LSNET_MODEL",)` → `("KALOSCOPE_MODEL",)`（或 `Any` 以兼容两代） |
+| 取维度 | `head.bn.num_features` → `head.in_features`（3.0 没有 `bn`） |
+| 反推前 | 内建 `F.normalize(f) × sqrt(head.in_features)`，并按 `model.classifier_input_normalization` 决定是否启用 —— 2.0 默认**关**、3.0 必须**开**，这是最容易踩的反转 |
+| 画师串 → 向量 | 2.0 用 `head.fuse()` 折叠 BN；3.0 没得折，改为直接用 `head.weight` |
+| 上游接线 | 必须改用 `Kaloscope Extract Features(output_type=cls_mean)`；**不能**用 `Kaloscope Common Features`（那是 256 维 projector） |
+| 多向量聚合 | 2.0 的 `head(mean f)` 在 3.0 不成立 → 改为"逐样本归一化 → 各自分类 → 平均 logits" |
+| 工作流常数 | `a/4525`（= 100·√2048）→ 建议改成免常数写法 `randn(seed, shape(M)) * (变异强度/100) * rownorm(M) / sqrt(shape(M)[1])` |
+| GA 尺度旋钮 | 3.0 里模长对分类零影响 ⇒ `normclip` 从"权重上下限"退化为数值安全网；"变异强度"应理解为**球面上的相对步长**（小步长下 ≈ 角度） |
 
 ## 三种常用配方
 
@@ -572,7 +630,7 @@ flowchart TD
 | 类型 | 需要 |
 |---|---|
 | 本仓库 | `Computational-LSNet`（7 个节点） |
-| LSNet | [comfyui-lsnet](https://github.com/spawner1145/comfyui-lsnet) + Kaloscope 模型（`models/lsnet/kaloscope/`） |
+| LSNet **2.0**（必需，且**只能**是 2.0） | [`comfyui-kaloscope` `legacy` 分支](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)（Manager 里的 `lsnet` 1.0.8）+ 模型 `models/lsnet/kaloscope2.0/` |
 | 必需插件 | `ComfyUI-Easy-Use`（for 循环 / 变量 / 提示词 / pipe 采样 / 种子）、`ComfyUI-Custom-Scripts`（Show Text、Save Text） |
 | 可选插件 | `rgthree-comfy`（`Lora Loader Stack`，工作流里 4 个槽全是 `None`，不需要可以直接删掉该节点） |
 | 核心节点 | `comfy_extras` 的 `String Replace` / `Math Expression` / `Convert Number` / `Primitive*` 等，ComfyUI 自带 |
@@ -627,6 +685,14 @@ A：`trigger` 是用来强制"**先写后读**"的（同一个文件先存后取
 A：见节点 6 的说明 —— 分类置信度与提示词权重没有解析映射。权重只用来**排序**，
 真正的风格强度请在**特征空间**里混合。
 
+**Q：什么时候适配 Kaloscope 3.0？**
+A：**等 3.0 正式版再说**，而且不会破坏 2.0 用户。三条理由：① 上游 3.0 目前是 **preview**
+（`v1-artist-classifier-epoch26`，主干仅训到 46000 步）；② ComfyUI Manager 上可安装的仍是 2.0 版 `lsnet` 1.0.8，
+绝大多数用户装的就是它；③ 3.0 的架构把"画风向量"与"分类头输入"拆成了两条分支，
+适配不是改名字而是要把归一化、聚合语义和 GA 的尺度旋钮一并重写（清单见 [3.0 差异](#版本兼容性与-30-差异)）。
+触发条件（满足任一即可动手）：Manager 上出现 3.0 节点 / 3.0 出正式版 / 你自己实测 3.0 的反推质量优于 2.0。
+适配时会做成**双版本自适应**（节点自动识别 v2/v3），并保留现有 2.0 工作流不动。
+
 **Q：能反推"图像里没有的画师"吗？**
 A：可以，路径就是 `画师串 → (节点2) 向量 → (节点1) 反推`，属于"探针方向"而非质心（见节点 2 的限制）。
 
@@ -652,10 +718,13 @@ Computational-LSNet/
 
 ## Credits & Attribution
 
-* **上游 / 附属声明**：本包是 [**comfyui-lsnet**](https://github.com/spawner1145/comfyui-lsnet)
-  （作者 **spawner1145**，LSNet / Kaloscope 画师分类器）的**附属（add-on）节点包**。
-  它**不修改**该插件的任何文件与权重，只是接在 `LSNet Model Loader` / `LSNet Common Features` 的输出上。
-  请先安装上游插件并遵守其许可；本包单独安装时节点 1/2 会因为缺少 `LSNET_MODEL` 句柄而无法工作。
+* **上游 / 附属声明**：本包是 [**comfyui-kaloscope**](https://github.com/spawner1145/comfyui-kaloscope)
+  （作者 **spawner1145**；旧名 `comfyui-lsnet`）的**附属（add-on）节点包**，当前对接的是它的
+  [`legacy` 分支](https://github.com/spawner1145/comfyui-kaloscope/tree/legacy)（= LSNet **2.0** 架构 /
+  ComfyUI Manager 上的 `lsnet` **1.0.8**；`main` 分支的 Kaloscope **3.0** 尚未适配）。
+  本包**不修改**上游插件的任何文件与权重，只是接在 `LSNet Model Loader` / `LSNet Common Features` 的公开输出上；
+  上游为 **GPL-3.0** 许可，本包**不复制**其代码，因此以 MIT 授权本包自身代码。
+  单独安装本包时节点 1/2 会因为缺少 `LSNET_MODEL` 句柄而无法工作。
 * **参考实现**：`Vector Math` 的表达式语言、函数命名与随机分布接口参考了
   [**mcDandy/more_math**](https://github.com/mcDandy/more_math.git)（`more_math`）。
   本节点的差异是把 `Vn`/`Fn` 从 `String`/`Float` 换成**任意类型端口**，从而能直接接收 `TENSOR`，
