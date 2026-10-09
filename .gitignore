@@ -7,3 +7,4 @@ lsnet_vectors/
 .ipynb_checkpoints/
 .DS_Store
 Thumbs.db
+.ruff_cache/
