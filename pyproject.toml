@@ -1,0 +1,26 @@
+# Comfy Registry（ComfyUI Manager）发布用元数据。
+# 官方规范：https://docs.comfy.org/registry/specifications
+# 需要你手填的地方都标了 TODO。
+
+[project]
+name = "computational-lsnet"          # 全局唯一、不可改；会成为安装目录名 custom_nodes/computational-lsnet
+version = "1.0.0"                     # 语义化版本；同版本号不能重复发布
+description = "把 LSNet / Kaloscope 的画师风格张量变成可计算、可存档、可读回、可进化的对象：张量反推画师串、画师串反推张量、106 函数的向量表达式运算、b64 逐比特存档，附画师串遗传算法（GA）工作流。"
+license = { file = "LICENSE" }        # 若暂不加 LICENSE 文件，请改成 → license = { text = "MIT License" }
+requires-python = ">=3.10"
+# ⚠ 故意留空：torch 由 ComfyUI 自带。声明它会让 Manager 去 pip 安装/替换用户的 torch（可能把 CUDA 版换成 CPU 版）。
+dependencies = []
+classifiers = [
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+]
+
+[project.urls]
+Repository = "https://github.com/let-the-name-be-x1/Computational-LSNet"
+"Bug Tracker" = "https://github.com/let-the-name-be-x1/Computational-LSNet/issues"
+
+[tool.comfy]
+PublisherId = "let-the-name-be-x1"   # registry.comfy.org 个人主页 @ 后面的字符串，注册后不可改
+DisplayName = "Computational LSNet"
+# Icon = "https://raw.githubusercontent.com/let-the-name-be-x1/Computational-LSNet/main/icon.png"  # 可选，≤400×400 方形
+# Banner = "https://raw.githubusercontent.com/let-the-name-be-x1/Computational-LSNet/main/banner.png"  # 可选，21:9

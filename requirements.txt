@@ -1,0 +1,4 @@
+# Computational LSNet 的唯一依赖是 torch（ComfyUI 自带）。
+# 这里保持空文件，避免 pip 去装/覆盖 ComfyUI 自己的 torch 版本。
+# 如果你的环境真的缺 torch，请按 ComfyUI 官方指引安装对应 CUDA 版本，例如：
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
